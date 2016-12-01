@@ -7,6 +7,7 @@
 //
 
 #include <iostream>
+#include <cstdio>
 #include <vector>
 #include <algorithm>
 using namespace std;
@@ -14,7 +15,7 @@ using namespace std;
 struct mice {
     int id;
     int weight;
-    int rank = -1;
+    int rank;
     bool operator < (const mice & b) const{
         return weight < b.weight;
     }
