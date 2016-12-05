@@ -11,38 +11,8 @@
 #include <string>
 #include <algorithm>
 #include <queue>
-struct custom;
-struct Table {
-    std::vector<int> tables;    //所有的桌子
-    std::vector<bool> is_vip;   //是不是vip桌子
-    std::vector<int> vip_tables;    //vip桌子编号的集合
-    std::vector<int> service_nums;  //每个桌子服务的人数
-    int empty_table;            //是否有空桌子
-    int vip_table;              //是否有vip桌子
-    int current_time = 0;       //当前时间
-    int first_empty_table() {
-        for(int i = 0; i < tables.size(); i++) {
-            if(!tables[i]) return i;
-        }
-        return -1;
-    }
-    int first_vip_table() {
-        for(int i = 0; i < vip_tables.size(); i++) {
-            if(!tables[vip_tables[i]]) return vip_tables[i];
-        }
-        return -1;
-    }
-    Table(int a, int b) {
-        tables = std::vector<int>(a, 0);
-        service_nums = std::vector<int>(a, 0);
-        is_vip = std::vector<bool>(a, false);
-        empty_table = a;
-        vip_table = b;
-    }
-    void add_custom(custom &c);
-    void time_pass(int t);
-    int time_passing_to_empty();
-};
+#include <math.h>
+using namespace std;
 
 struct custom {
     int arrive_time;
@@ -61,104 +31,158 @@ struct custom {
         ss = t % 60;
         printf("%02d:%02d:%02d ", hh, mm, ss);
         t = arrive_time + waiting_time;
-        t = arrive_time;
         hh = t / 3600;
         mm = (t % 3600) / 60;
         ss = t % 60;
         printf("%02d:%02d:%02d ", hh, mm, ss);
-        printf("%d\n", waiting_time);
+        printf("%d\n", int(round(waiting_time/60.0)));
     }
 };
 
-int Table::time_passing_to_empty() {
-    int min = 0x7fffffff;
-    for (int i = 0; i < tables.size(); i++) {
-        if(tables[i] == 0) continue;
-        min = min > tables[i] ? tables[i] : min;
-    }
-    time_pass(min);
-    return min;
+bool compare(const custom & a, const custom & b) {
+    return a.arrive_time + a.waiting_time < b.arrive_time + b.waiting_time;
 }
 
-void Table::time_pass(int t) {
-    for (int i = 0; i < tables.size(); i++) {
-        if (tables[i] != 0) {
-            tables[i] -= t;
-            if(tables[i] <= 0) {
-                tables[i] = 0;
-                empty_table--;
-            }
+int has_tables(vector<bool> &avail) {
+    for (int i = 0; i < avail.size(); i++) {
+        if (avail[i]) {
+            return i;
         }
     }
-    current_time += t;
+    return -1;
 }
 
-void Table::add_custom(custom &c) {
-    if(current_time == 0) current_time = c.arrive_time;
-    else if(c.arrive_time < current_time) {
-        c.waiting_time += current_time - c.arrive_time;
-        c.arrive_time = current_time;
+int has_vip_tables(vector<bool> & avail, vector<int> & vip) {
+    for (int i = 0; i < vip.size(); i++) {
+        if (avail[vip[i]]) {
+            return vip[i];
+        }
     }
-    
+    return -1;
+}
+
+int cur_time, k;
+queue<int> ord_customs, vip_customs;
+
+void find_a_table(vector<int> &free_time, vector<bool> &available, vector<custom> &customs) {
+    int temp = *min_element(free_time.begin(), free_time.end());
+    //printf("find a first table free at %d\n", temp + cur_time);
+//    for (int i = 0; i<free_time.size(); i++) {
+//        printf("%d ",free_time[i]);
+//    }
+//    putchar('\n');
+    for (int i = 0; i < free_time.size(); i++) {
+        free_time[i] -= temp;
+        if (free_time[i] <= 0) {
+            free_time[i] = 0;
+            available[i] = true;
+        }
+    }
+    cur_time += temp;
+}
+
+void time_passed(int t, vector<int> &free_time, vector<bool> &available) {
+    //printf("time passed %d at %d\n", t, cur_time);
+    cur_time += t;
+    for (int i = 0; i < free_time.size(); i++) {
+        free_time[i] -= t;
+        if (free_time[i] <= 0) {
+            free_time[i] = 0;
+            available[i] = true;
+        }
+    }
 }
 
 int main(int argc, const char * argv[]) {
     // insert code here...
     int n, hh, mm, ss, temp_need, tag;
     int table_num, vip_num;
-    std::queue<int> ord_customs, vip_customs;
-    std::vector<custom> customs;
+    vector<custom> customs;
     scanf("%d", &n);
     for (int i = 0; i < n; i++) {
         scanf("%d:%d:%d %d %d", &hh, &mm, &ss, &temp_need, &tag);
-        customs.push_back(custom(hh * 3600 + mm * 60 + ss, temp_need, tag));
+        if (temp_need > 120) temp_need = 120;
+        customs.push_back(custom(hh * 3600 + mm * 60 + ss, temp_need * 60, tag));
     }
     std::sort(customs.begin(), customs.end(), std::less<custom>());
-    scanf("%d %d", &table_num, &vip_num);
-    Table tables(table_num, vip_num);
-    for (int i = 0; i < vip_num; i++) {
-        scanf("%d", &temp_need);
-        tables.is_vip[temp_need] = true;
-        tables.vip_tables.push_back(temp_need);
-    }
     for (int i = 0; i < customs.size(); i++) {
-        if (tables.empty_table) {
-            tables.add_custom(customs[i]);
-        } else {
-            if(customs[i].is_vip) {
-                vip_customs.push(i);
+        if (customs[i].is_vip) {
+            vip_customs.push(i);
+        } else ord_customs.push(i);
+    }
+    scanf("%d %d", &table_num, &vip_num);
+    vector<int> tables(n);
+    vector<bool> available(table_num, true);
+    vector<int> free_time(table_num, 0);
+    vector<int> served_people(table_num, 0);
+    vector<int> vip_tables;
+    for (int i = 0; i < vip_num; i++) {
+        int temp;
+        scanf("%d", &temp);
+        vip_tables.push_back(temp-1);
+    }
+    cur_time = customs[0].arrive_time;
+    while (!ord_customs.empty() || !vip_customs.empty()) {
+//        if (cur_time >= 21 * 3600) {
+//            break;
+//        }
+        int first_custom_time = 0x7FFFFFFF;
+        if (ord_customs.empty()) {
+            first_custom_time = customs[vip_customs.front()].arrive_time;
+        } else if (vip_customs.empty())
+            first_custom_time = customs[ord_customs.front()].arrive_time;
+        else {
+            first_custom_time = min(customs[vip_customs.front()].arrive_time, customs[ord_customs.front()].arrive_time);
+        }
+        if (cur_time < first_custom_time) {
+            time_passed(first_custom_time - cur_time, free_time, available);
+            continue;
+        }
+        int try_find_vip_table = has_vip_tables(available, vip_tables);
+        if (try_find_vip_table != -1 && !vip_customs.empty() && customs[vip_customs.front()].arrive_time <= cur_time) {
+            int vf = vip_customs.front();
+//            printf("%d arrives at %d and got a vip seat: %d at %d and leaves at %d\n", vf, customs[vf].arrive_time, try_find_vip_table, cur_time, customs[vf].need_time + cur_time);
+            vip_customs.pop();
+            customs[vf].waiting_time = cur_time - customs[vf].arrive_time;
+            available[try_find_vip_table] = false;
+            if(cur_time < 21 * 3600)
+                served_people[try_find_vip_table]++;
+            free_time[try_find_vip_table] = customs[vf].need_time;
+        } else if (has_tables(available) != -1) {         //说明能找到一个桌子
+            int try_find_table = has_tables(available);
+            if (ord_customs.empty()) {
+                k = vip_customs.front();
+                vip_customs.pop();
+            } else if (vip_customs.empty()) {
+                k = ord_customs.front();
+                ord_customs.pop();
+            } else if (customs[vip_customs.front()].arrive_time < customs[ord_customs.front()].arrive_time) {
+                k = vip_customs.front();
+                vip_customs.pop();
             } else {
-                ord_customs.push(i);
+                k = ord_customs.front();
+                ord_customs.pop();
             }
-            tables.time_passing_to_empty();
-            while (tables.empty_table && (!vip_customs.empty() || !ord_customs.empty())) {
-                int first_custom;
-                if (ord_customs.empty() || (tables.is_vip[tables.first_empty_table()]
-                                            && !vip_customs.empty())){
-                    first_custom = vip_customs.front();
-                    vip_customs.pop();
-                } else if (vip_customs.empty()) {
-                    first_custom = ord_customs.front();
-                    ord_customs.pop();
-                } else {
-                    int a = ord_customs.front(), b = vip_customs.front();
-                    if(customs[a].arrive_time < customs[b].arrive_time) {
-                        first_custom = a;
-                        ord_customs.pop();
-                    } else {
-                        first_custom = b;
-                        vip_customs.pop();
-                    }
-                }
-                tables.add_custom(customs[first_custom]);
-            }
+//            printf("%d arrives at: %d got an common seat: %d at %d and leaves at %d\n", k, customs[k].arrive_time, try_find_table ,cur_time, cur_time + customs[k].need_time);
+            customs[k].waiting_time = cur_time - customs[k].arrive_time;
+            available[try_find_table] = false;
+            if(cur_time < 21 * 3600)
+                served_people[try_find_table]++;
+            free_time[try_find_table] = customs[k].need_time;
+        } else {
+            //printf("Try find a table at %d...\n", cur_time);
+            find_a_table(free_time, available, customs);
         }
     }
+    sort(customs.begin(), customs.end(), compare);
     for (int i = 0; i < customs.size(); i++) {
-        customs[i].print();
+        if (customs[i].arrive_time + customs[i].waiting_time < 21 * 3600)
+            customs[i].print();
     }
-    for (int i = 0; i < tables.tables.size(); i++) {
-        printf("%d ", tables.service_nums[i]);
+    printf("%d", served_people[0]);
+    for (int i = 1; i < served_people.size(); i++) {
+        printf(" %d", served_people[i]);
     }
+    putchar('\n');
     return 0;
 }
