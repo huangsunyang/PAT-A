@@ -1,0 +1,165 @@
+#PAT-A常用数据结构总结
+##并查集
+- 代码实现难度不大，主要掌握使用的时机即可
+```
+int ar[10005];
+
+int find_father(int a) {
+  if (ar[a] == -1) return a;
+  else ar[a] = find_father(ar[a]);
+  return ar[a];
+}
+
+void merge(int a, int b) {
+  int c = find_father(a);
+  int d = find_father(b);
+  ar[d] = c;
+}
+```
+##树
+###前序/中序/后序遍历的递归形式
+- 递归形式，代码简洁，虽然递归栈开销较大，但是在PAT中已经够用了。有的时候递归输出的格式可能会有些困扰，因为不允许行末的空格，也就是说要对第一个或者最后一个输出的元素作特殊处理，在递归调用中有些不好办。通常我的作法是创建一个全局的vector，递归调用的时候不直接输出，而是压入vector中，在函数结束之后，再对vector遍历输出即可。
+- 一般来说，不会作为题目的主要考点，要是作为一种常识性的工具，因为对于一道题目而言，最后检验的标准只可能是你的输出，而想要表示一棵确定的树，最好的检验方法也就是让你遍历输出所有的节点。
+```
+void inorder_traversal(node * root) {
+    if (root == NULL) return;
+    inorder_traversal(root->left);
+    visit(root);
+    inorder_traversal(root->right);    
+}
+```
+###前序/中序/后序遍历的非递归形式
+- 这一部分实际上是我的弱项之一，学习数据结构的时候并没有学得特别扎实。
+####前序遍历的非递归形式
+- 这实际上是三种情况中最为简单的一种，因为其递归形式实际上是尾递归，因此很容易改写为迭代的形式。其由两种实现方式，都需要一个栈结构作为其支撑。
+- 一种简单的实现方式如下，先压入右节点，再压入左节点即可，因为访问的时候是先左后右，因此压入栈的顺序则需要相反。
+```
+void preorder_traversal(node * root) {
+    stack<node *> st;
+    st.push(root);
+    while(!st.empty()) {
+        node * cur = st.top();
+        visit(cur);
+        st.pop();
+        if (cur->right) st.push(cur->right);
+        if (cur->left) st.push(cur->left);
+    }
+}
+```
+- 这种方法虽然简单，但是这利用了前序遍历的特殊性，并不能够推广到其他的两种遍历上去。因此，我们需要另外一种前序遍历的非递归算法。
+- 前序遍历的一个特点在于，它实际上每次都访问了当前子树的左侧链，即只要有左子节点，就不断地访问左子节点，而沿途的右子节点则均进栈。实际上，它的访问逻辑就如下图所示，从上至下访问左侧链，然后再从下至上访问右子树。
+
+![](./_image/屏幕快照 2016-12-06 22.31.18.png?w=1000&r=100&h=1000)
+
+- 代码的实现如下，其中需要一个辅助函数遍历左侧链，并将左侧链上每个节点的右子节点入栈。需要注意的是，入栈的节点可能为空，不过即使为空，我们的`left_branch`函数最多只是什么都不做罢了。之所以允许栈内有空节点的原因在于：如果不允许有空节点，那么在入栈之前需要多作一次判断，相当于对于每个节点而言，都要多运行一步，而允许有空节点，那么也仅仅是在遇到空节点的时候多判断了一步而已。并没有增加运行的时间，同时代码也更加简洁。
+```
+void left_branch(node * root, stack<node *> & st) {
+    while (root != NULL) {
+        visit(root);
+        st.push(root->right);
+        x = x->left;
+    }
+}
+
+void preorder_traversal(node * root) {
+    stack<node *> st;
+    while (true) {
+        left_branch(root, st);
+        if (st.empty()) return;
+        root = st.top();
+        st.pop();
+    }
+}
+```
+####中序遍历的非递归形式
+- 中序遍历的特点在于，每一次都先访问子树的最左节点，而后访问该节点的右子树，之后访问左侧链上该节点的前一个节点和那个节点的右子树。也不难发现，我们在访问最左节点的时候，需要把沿途的所有节点都进栈，当进行退栈操作的时候，其左侧的所有节点应该都已经访问完了，因此退栈的同时访问节点，并将控制权转到其右子节点。
+
+![](./_image/屏幕快照 2016-12-06 23.42.26.png)
+```
+void left_branch(node * root, stack<node *> & st) {
+    while (x != NULL) {
+        st.push(x);
+        x = x->left;
+    }
+}
+
+void inorder_traversal(node * root) {
+    stack<node *> st;
+    while (true) {
+        left_branch(root, st);
+        if (st.empty()) return;
+        root = st.top();
+        st.pop();
+        visit(root);
+        root = root->right;
+    }
+}
+```
+####后序遍历的非递归形式
+- 这一部分在邓俊辉老师的MOCC课堂上并没有讲授，此处试图从网上找到了一种简单的算法，唯一的缺陷在于和前两者似乎没有很好地统一起来。后序遍历的要点在于，需要遍历完一个节点的所有后代之后，才能够遍历该节点本身。而想要遍历其后代，该节点也必须出栈一次，该算法一个巧妙的地方在于，所有节点都入栈两次。
+```
+void postorder_traversal(node * root) {
+    stack<node *> st;
+    st.push(root), st.push(root);
+    while (!root.empty()) {
+        root = st.top();
+        st.pop();
+        if (!st.empty() && st.top() == root) {      //说明是第一次出栈
+            if (root->right) st.push(st->right), st.push(st->right);
+            if (root->left) st.push(st->left), st.push(st->left);
+        } else {
+            visit(root);
+        }
+    }
+}
+```
+###层次遍历
+- 实际上树的层次遍历只是图的广度优先搜索的一种特殊情况，只要将广度优先搜索中将其邻接的节点理解为的左右子节点即可。
+
+###根据树的前序/后序遍历和中序遍历确定一棵树
+- 一般情况下，题目的输出是剩下的另一种遍历方式，即输入是两种遍历方式，输出是第三种遍历方式，或者有可能是层次遍历。
+- 主要的思路在于，通过前序/后序遍历找到根节点，再通过中序遍历中的该节点得到其两棵子树，再用子树进行递归即可。递归结束的条件即树为空。
+- 如果输出即是第三种遍历方式，那么可以省去建树的步骤，直接在递归地时刻输出即可，比如本例代码的visit()阶段即可直接输出，相当于就是前序遍历。
+- 而如果是要层次遍历，那么会稍加麻烦一些，需要有建树的步骤，即记录每一个节点的两个子节点，而根节点可以直接从后序遍历的最后一个元素得到。
+```
+void build_tree(vector<int> inorder, vector<int> postorder) {
+    if (inorder.empty()) {
+        return;
+    } 
+    int target = postorder.back(), pos;
+    for (int i = 0; i < inorder.size(); i++) {
+        if (inorder[i] == target) {
+            pos = i;
+            break;
+        }
+    }
+  vector<int> in_left(inorder.begin(), inorder.begin() + pos);
+  vector<int> in_right(inorder.begin() + pos + 1, inorder.end());
+  vector<int> post_left(postorder.begin(), postorder.begin() + pos);
+  vector<int> post_right(postorder.begin() + pos, postorder.end() - 1);
+  
+  //visit(target);
+  build_tree(in_left, post_left);
+  build_tree(in_right, post_right);
+}
+```
+###根据树的前序和后序遍历序列确定一棵树
+- 实际上，这样的树并非是确定的，而16年秋季的最后一题即这道题。要求判断前序和后序遍历序列确定的树是否是唯一的，如果不唯一，则任意输出一棵即可。
+- 树唯一与否的关键在于，树是否是真二叉树(complete binary tree)，即每一个节点都不能够只有一个子女。一旦出现只有一个子女的节点，那么这个子女在左侧或者右侧对于树的前序和后序遍历序列来说并没有区别。
+##图
+###广度优先搜索
+- 利用一个队列即可，相对于深度优先搜索而言更为简单一些。结束条件
+
+
+
+
+
+
+
+
+
+
+
+
+
+
